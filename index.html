@@ -347,6 +347,24 @@ body::before {
 }
 
 .todo-delete:hover { color: var(--color-danger); background: rgba(255,255,255,0.1); }
+
+/* ---- Scrollbar ---- */
+.todo-list::-webkit-scrollbar { width: 4px; }
+.todo-list::-webkit-scrollbar-track { background: transparent; }
+.todo-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+/* ---- Card hover lift ---- */
+.card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.card:hover { box-shadow: 0 8px 40px rgba(0,0,0,0.3); }
+
+/* ---- Responsive ---- */
+@media (max-width: 480px) {
+  .card { padding: 28px 20px; gap: 22px; }
+  .clock-wrapper { width: 160px; height: 160px; }
+  .clock-time { font-size: 1.8rem; }
+  .title { font-size: 1.3rem; }
+  .pomo-btn { padding: 7px 16px; font-size: 0.82rem; }
+}
 </style>
 </head>
 <body>
@@ -738,6 +756,15 @@ todoInput.addEventListener('keydown', (e) => {
 // Initialize
 loadTodos();
 renderTodos();
+
+// ==================== KEYBOARD SHORTCUTS ====================
+document.addEventListener('keydown', (e) => {
+  // Space to toggle timer (only when not typing in inputs)
+  if (e.code === 'Space' && e.target === document.body) {
+    e.preventDefault();
+    startPomodoro();
+  }
+});
 </script>
 </body>
 </html>
