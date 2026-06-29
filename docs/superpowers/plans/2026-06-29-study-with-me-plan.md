@@ -21,7 +21,6 @@
 - Pomodoro: 50 min work / 10 min break
 
 ---
-```
 
 ### Task 1: HTML Scaffold & Base CSS
 
