@@ -30,8 +30,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a0e06 0%, #2d1810 50%, #1a1208 100%);
-  background-image: url('Lonely Camp Fire GIF.gif');
+  background-color: #1a0e06;
+  background-image: url('Lonely Camp Fire GIF.gif'), linear-gradient(135deg, #1a0e06 0%, #2d1810 50%, #1a1208 100%);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -481,7 +481,7 @@ function tick() {
   if (!pomoState.running) return;
   const now = Date.now();
   const remaining = Math.max(0, Math.ceil((pomoState.endTime - now) / 1000));
-  pomoState.remainingSeconds = remaining;
+  pomoState.remainingSeconds = Math.max(0, remaining);
   updateDisplay();
 
   if (remaining <= 0) {
@@ -609,7 +609,9 @@ function loadYoutube(url) {
   if (!ytPlayer) {
     // YouTube IFrame API will call onYouTubeIframeAPIReady
     window.onYouTubeIframeAPIReady = function() {
-      createPlayer(videoId);
+      const vid = window._pendingVideoId || videoId;
+      createPlayer(vid);
+      window._pendingVideoId = null;
     };
     // Load API if not already loaded
     if (!document.getElementById('yt-api-script')) {
@@ -618,8 +620,12 @@ function loadYoutube(url) {
       tag.src = 'https://www.youtube.com/iframe_api';
       const firstScript = document.getElementsByTagName('script')[0];
       firstScript.parentNode.insertBefore(tag, firstScript);
-    } else {
+    } else if (typeof YT !== 'undefined' && YT.Player) {
       createPlayer(videoId);
+    } else {
+      // API script exists but hasn't loaded yet; wait for onYouTubeIframeAPIReady
+      window._pendingVideoId = videoId;
+      return;
     }
   } else {
     ytPlayer.loadVideoById(videoId);
