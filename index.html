@@ -82,6 +82,110 @@ body::before {
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
 }
+
+/* ---- Pomodoro Clock ---- */
+.pomo-container { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+.clock-wrapper { position: relative; width: 200px; height: 200px; }
+
+.clock-face {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.15);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* SVG progress ring */
+.progress-ring {
+  position: absolute; inset: -8px;
+  transform: rotate(-90deg);
+  width: calc(100% + 16px); height: calc(100% + 16px);
+}
+
+.progress-ring__circle {
+  fill: none;
+  stroke: var(--color-work);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.4s;
+}
+
+.progress-ring__circle.break { stroke: var(--color-break); }
+
+/* Clock hand */
+.clock-hand {
+  position: absolute;
+  width: 3px; height: 44%;
+  background: var(--color-text);
+  border-radius: 2px;
+  bottom: 50%;
+  left: 50%;
+  transform-origin: bottom center;
+  transform: translateX(-50%) rotate(0deg);
+  transition: transform 1s linear;
+  opacity: 0.9;
+}
+
+.clock-center {
+  position: absolute;
+  width: 10px; height: 10px;
+  background: var(--color-text);
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.clock-time {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mode-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: var(--color-work);
+  color: #fff;
+  transition: background 0.4s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mode-badge.break { background: var(--color-break); }
+
+.pomo-controls { display: flex; gap: 12px; }
+
+.pomo-btn {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 8px 22px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.25s;
+  letter-spacing: 0.03em;
+}
+
+.pomo-btn--start {
+  background: var(--color-work);
+  color: #fff;
+}
+
+.pomo-btn--start:hover { filter: brightness(1.12); transform: translateY(-1px); }
+
+.pomo-btn--reset {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.pomo-btn--reset:hover { background: rgba(255,255,255,0.08); color: var(--color-text); }
 </style>
 </head>
 <body>
@@ -91,7 +195,26 @@ body::before {
   <!-- Pomodoro section -->
   <div class="section" id="pomodoro-section">
     <span class="section-label">⏱ Pomodoro</span>
-    <!-- clock + controls go here in Task 2 -->
+    <div class="pomo-container">
+      <div class="mode-badge" id="mode-badge">🎯 Tập trung</div>
+      <div class="clock-wrapper">
+        <svg class="progress-ring" viewBox="0 0 216 216">
+          <circle class="progress-ring__circle" id="progress-circle"
+            cx="108" cy="108" r="102"
+            stroke-dasharray="640.88"
+            stroke-dashoffset="0" />
+        </svg>
+        <div class="clock-face">
+          <div class="clock-hand" id="clock-hand"></div>
+          <div class="clock-center"></div>
+          <div class="clock-time" id="clock-time">50:00</div>
+        </div>
+      </div>
+      <div class="pomo-controls">
+        <button class="pomo-btn pomo-btn--start" id="btn-start">▶ Bắt đầu</button>
+        <button class="pomo-btn pomo-btn--reset" id="btn-reset">↺ Reset</button>
+      </div>
+    </div>
   </div>
 
   <!-- YouTube section -->
@@ -108,5 +231,147 @@ body::before {
 </div>
 
 <!-- Hidden YouTube iframe (Task 3) -->
+<script>
+// ==================== POMODORO ====================
+const WORK_MINUTES = 50;
+const BREAK_MINUTES = 10;
+
+const clockTime = document.getElementById('clock-time');
+const clockHand = document.getElementById('clock-hand');
+const progressCircle = document.getElementById('progress-circle');
+const modeBadge = document.getElementById('mode-badge');
+const btnStart = document.getElementById('btn-start');
+const btnReset = document.getElementById('btn-reset');
+
+const CIRCUMFERENCE = 2 * Math.PI * 102; // ~640.88
+progressCircle.style.strokeDasharray = CIRCUMFERENCE;
+progressCircle.style.strokeDashoffset = '0';
+
+let pomoState = {
+  mode: 'work',        // 'work' | 'break'
+  running: false,
+  totalSeconds: WORK_MINUTES * 60,
+  remainingSeconds: WORK_MINUTES * 60,
+  endTime: null,       // Date.now() + remainingSeconds*1000 when running
+  intervalId: null
+};
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function updateDisplay() {
+  clockTime.textContent = formatTime(pomoState.remainingSeconds);
+  const ratio = pomoState.remainingSeconds / pomoState.totalSeconds;
+  progressCircle.style.strokeDashoffset = CIRCUMFERENCE * (1 - ratio);
+  // Clock hand: full circle = totalSeconds, map to 360 degrees
+  const degrees = (ratio * 360);
+  clockHand.style.transform = `translateX(-50%) rotate(${degrees}deg)`;
+}
+
+function updateModeUI() {
+  const isWork = pomoState.mode === 'work';
+  modeBadge.textContent = isWork ? '🎯 Tập trung' : '☕ Nghỉ ngơi';
+  modeBadge.classList.toggle('break', !isWork);
+  progressCircle.classList.toggle('break', !isWork);
+  btnStart.style.background = isWork ? 'var(--color-work)' : 'var(--color-break)';
+  document.querySelector('.pomo-container').style.animation = 'none';
+  void document.querySelector('.pomo-container').offsetHeight;
+  document.querySelector('.pomo-container').style.animation = 'shake 0.4s ease';
+}
+
+function tick() {
+  if (!pomoState.running) return;
+  const now = Date.now();
+  const remaining = Math.max(0, Math.ceil((pomoState.endTime - now) / 1000));
+  pomoState.remainingSeconds = remaining;
+  updateDisplay();
+
+  if (remaining <= 0) {
+    switchMode();
+    playChime();
+  }
+}
+
+function startPomodoro() {
+  if (pomoState.running) {
+    // Pause
+    pomoState.running = false;
+    clearInterval(pomoState.intervalId);
+    btnStart.textContent = '▶ Bắt đầu';
+    return;
+  }
+  // Start or resume
+  pomoState.running = true;
+  pomoState.endTime = Date.now() + pomoState.remainingSeconds * 1000;
+  pomoState.intervalId = setInterval(tick, 200);
+  btnStart.textContent = '⏸ Tạm dừng';
+}
+
+function resetPomodoro() {
+  pomoState.running = false;
+  clearInterval(pomoState.intervalId);
+  pomoState.mode = 'work';
+  pomoState.totalSeconds = WORK_MINUTES * 60;
+  pomoState.remainingSeconds = WORK_MINUTES * 60;
+  pomoState.endTime = null;
+  btnStart.textContent = '▶ Bắt đầu';
+  updateModeUI();
+  updateDisplay();
+}
+
+function switchMode() {
+  pomoState.running = false;
+  clearInterval(pomoState.intervalId);
+  if (pomoState.mode === 'work') {
+    pomoState.mode = 'break';
+    pomoState.totalSeconds = BREAK_MINUTES * 60;
+  } else {
+    pomoState.mode = 'work';
+    pomoState.totalSeconds = WORK_MINUTES * 60;
+  }
+  pomoState.remainingSeconds = pomoState.totalSeconds;
+  pomoState.endTime = null;
+  btnStart.textContent = '▶ Bắt đầu';
+  updateModeUI();
+  updateDisplay();
+}
+
+function playChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.4);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.18);
+      osc.stop(ctx.currentTime + i * 0.18 + 0.4);
+    });
+  } catch(e) { /* Web Audio not available */ }
+}
+
+// Add shake keyframe animation to <style>
+const shakeStyle = document.createElement('style');
+shakeStyle.textContent = `
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+`;
+document.head.appendChild(shakeStyle);
+
+btnStart.addEventListener('click', startPomodoro);
+btnReset.addEventListener('click', resetPomodoro);
+updateDisplay();
+</script>
 </body>
 </html>
