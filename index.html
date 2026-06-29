@@ -186,6 +186,50 @@ body::before {
 }
 
 .pomo-btn--reset:hover { background: rgba(255,255,255,0.08); color: var(--color-text); }
+
+/* ---- YouTube ---- */
+.yt-form { display: flex; gap: 10px; }
+
+.yt-input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.25s;
+}
+
+.yt-input::placeholder { color: rgba(254,250,224,0.35); }
+
+.yt-input:focus { border-color: rgba(255,255,255,0.35); }
+
+.yt-btn {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.12);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.25s;
+  white-space: nowrap;
+}
+
+.yt-btn:hover { background: rgba(255,255,255,0.2); }
+
+.yt-status {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  min-height: 1.2em;
+}
+
+.yt-status.error { color: #f4a261; }
 </style>
 </head>
 <body>
@@ -220,7 +264,13 @@ body::before {
   <!-- YouTube section -->
   <div class="section" id="youtube-section">
     <span class="section-label">🎵 Nhạc nền</span>
-    <!-- input + player go here in Task 3 -->
+    <div class="yt-form">
+      <input class="yt-input" id="yt-input" type="text"
+        placeholder="Dán link YouTube vào đây..."
+        autocomplete="off" />
+      <button class="yt-btn" id="yt-load-btn">🎧 Load</button>
+    </div>
+    <div class="yt-status" id="yt-status"></div>
   </div>
 
   <!-- Todo section -->
@@ -231,6 +281,10 @@ body::before {
 </div>
 
 <!-- Hidden YouTube iframe (Task 3) -->
+<div id="yt-player-wrapper" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;">
+  <div id="yt-player"></div>
+</div>
+
 <script>
 // ==================== POMODORO ====================
 const WORK_MINUTES = 50;
@@ -377,6 +431,104 @@ document.head.appendChild(shakeStyle);
 btnStart.addEventListener('click', startPomodoro);
 btnReset.addEventListener('click', resetPomodoro);
 updateDisplay();
+
+// ==================== YOUTUBE ====================
+const ytInput = document.getElementById('yt-input');
+const ytLoadBtn = document.getElementById('yt-load-btn');
+const ytStatus = document.getElementById('yt-status');
+
+let ytPlayer = null;
+
+function extractYoutubeId(url) {
+  if (!url || !url.trim()) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const match = url.match(p);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function loadYoutube(url) {
+  const videoId = extractYoutubeId(url);
+  if (!videoId) {
+    ytStatus.textContent = '⚠ Link YouTube không hợp lệ. Thử lại nhé!';
+    ytStatus.className = 'yt-status error';
+    return;
+  }
+
+  ytStatus.textContent = '⏳ Đang tải...';
+  ytStatus.className = 'yt-status';
+
+  if (!ytPlayer) {
+    // YouTube IFrame API will call onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = function() {
+      createPlayer(videoId);
+    };
+    // Load API if not already loaded
+    if (!document.getElementById('yt-api-script')) {
+      const tag = document.createElement('script');
+      tag.id = 'yt-api-script';
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScript = document.getElementsByTagName('script')[0];
+      firstScript.parentNode.insertBefore(tag, firstScript);
+    } else {
+      createPlayer(videoId);
+    }
+  } else {
+    ytPlayer.loadVideoById(videoId);
+    ytPlayer.playVideo();
+    ytStatus.textContent = '🎵 Đang phát...';
+    ytStatus.className = 'yt-status';
+  }
+}
+
+function createPlayer(videoId) {
+  ytPlayer = new YT.Player('yt-player', {
+    videoId: videoId,
+    playerVars: {
+      autoplay: 1,
+      controls: 0,
+      modestbranding: 1,
+      iv_load_policy: 3,
+      rel: 0,
+      showinfo: 0,
+    },
+    events: {
+      onReady: function() {
+        ytPlayer.playVideo();
+        ytStatus.textContent = '🎵 Đang phát...';
+        ytStatus.className = 'yt-status';
+      },
+      onError: function() {
+        ytStatus.textContent = '⚠ Không thể phát video này.';
+        ytStatus.className = 'yt-status error';
+      },
+    },
+  });
+}
+
+ytLoadBtn.addEventListener('click', () => {
+  const url = ytInput.value.trim();
+  if (!url) {
+    ytInput.focus();
+    ytStatus.textContent = 'Vui lòng nhập link YouTube.';
+    ytStatus.className = 'yt-status error';
+    return;
+  }
+  loadYoutube(url);
+});
+
+ytInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    ytLoadBtn.click();
+  }
+});
 </script>
 </body>
 </html>
