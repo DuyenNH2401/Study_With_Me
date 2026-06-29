@@ -297,10 +297,7 @@ function tick() {
 
 function startPomodoro() {
   if (pomoState.running) {
-    // Pause
-    pomoState.running = false;
-    clearInterval(pomoState.intervalId);
-    btnStart.textContent = '▶ Bắt đầu';
+    pausePomodoro();
     return;
   }
   // Start or resume
@@ -308,6 +305,14 @@ function startPomodoro() {
   pomoState.endTime = Date.now() + pomoState.remainingSeconds * 1000;
   pomoState.intervalId = setInterval(tick, 200);
   btnStart.textContent = '⏸ Tạm dừng';
+}
+
+function pausePomodoro() {
+  if (pomoState.running) {
+    pomoState.running = false;
+    clearInterval(pomoState.intervalId);
+    btnStart.textContent = '▶ Bắt đầu';
+  }
 }
 
 function resetPomodoro() {
