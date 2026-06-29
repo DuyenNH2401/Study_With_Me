@@ -230,6 +230,123 @@ body::before {
 }
 
 .yt-status.error { color: #f4a261; }
+
+/* ---- Todo ---- */
+.todo-form { display: flex; gap: 10px; }
+
+.todo-input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.25s;
+}
+
+.todo-input::placeholder { color: rgba(254,250,224,0.35); }
+.todo-input:focus { border-color: rgba(255,255,255,0.35); }
+
+.todo-btn {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.12);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.25s;
+  white-space: nowrap;
+}
+
+.todo-btn:hover { background: rgba(255,255,255,0.2); }
+
+.todo-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.todo-list:empty::after {
+  content: 'Chưa có việc nào...';
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+  padding: 12px 0;
+  display: block;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.todo-item:hover { background: rgba(255,255,255,0.08); }
+
+.todo-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.todo-checkbox:checked {
+  background: var(--color-work);
+  border-color: var(--color-work);
+}
+
+.todo-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.todo-text {
+  flex: 1;
+  font-size: 0.88rem;
+  transition: all 0.25s;
+}
+
+.todo-text.done {
+  text-decoration: line-through;
+  opacity: 0.45;
+}
+
+.todo-delete {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.25);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.todo-delete:hover { color: var(--color-danger); background: rgba(255,255,255,0.1); }
 </style>
 </head>
 <body>
@@ -276,7 +393,13 @@ body::before {
   <!-- Todo section -->
   <div class="section" id="todo-section">
     <span class="section-label">📝 Việc cần làm</span>
-    <!-- todo list + input go here in Task 4 -->
+    <div class="todo-form">
+      <input class="todo-input" id="todo-input" type="text"
+        placeholder="Thêm việc mới..."
+        autocomplete="off" maxlength="200" />
+      <button class="todo-btn" id="todo-add-btn">+ Thêm</button>
+    </div>
+    <ul class="todo-list" id="todo-list"></ul>
   </div>
 </div>
 
@@ -529,6 +652,92 @@ ytInput.addEventListener('keydown', (e) => {
     ytLoadBtn.click();
   }
 });
+
+// ==================== TODO LIST ====================
+const STORAGE_KEY = 'studywithme-todos';
+const todoInput = document.getElementById('todo-input');
+const todoAddBtn = document.getElementById('todo-add-btn');
+const todoList = document.getElementById('todo-list');
+
+let todos = [];
+
+function loadTodos() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      todos = JSON.parse(raw);
+    }
+  } catch(e) {
+    todos = [];
+  }
+}
+
+function saveTodos() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  } catch(e) { /* storage full or unavailable, silently fail */ }
+}
+
+function renderTodos() {
+  todoList.innerHTML = '';
+  todos.forEach((todo, index) => {
+    const li = document.createElement('li');
+    li.className = 'todo-item';
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'todo-checkbox';
+    cb.checked = todo.done;
+    cb.addEventListener('change', () => {
+      todos[index].done = cb.checked;
+      saveTodos();
+      renderTodos();
+    });
+
+    const span = document.createElement('span');
+    span.className = 'todo-text' + (todo.done ? ' done' : '');
+    span.textContent = todo.text;
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'todo-delete';
+    delBtn.innerHTML = '✕';
+    delBtn.title = 'Xóa';
+    delBtn.addEventListener('click', () => {
+      todos.splice(index, 1);
+      saveTodos();
+      renderTodos();
+    });
+
+    li.appendChild(cb);
+    li.appendChild(span);
+    li.appendChild(delBtn);
+    todoList.appendChild(li);
+  });
+}
+
+function addTodo(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  todos.push({ text: trimmed, done: false });
+  saveTodos();
+  renderTodos();
+  todoInput.value = '';
+  todoInput.focus();
+}
+
+todoAddBtn.addEventListener('click', () => {
+  addTodo(todoInput.value);
+});
+
+todoInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    addTodo(todoInput.value);
+  }
+});
+
+// Initialize
+loadTodos();
+renderTodos();
 </script>
 </body>
 </html>
