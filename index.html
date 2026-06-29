@@ -30,19 +30,27 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #1a0e06;
-  background-image: url('Lonely Camp Fire GIF.gif'), linear-gradient(135deg, #1a0e06 0%, #2d1810 50%, #1a1208 100%);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #16213e 100%);
+  background-size: 400% 400%;
+  animation: bgShift 20s ease-in-out infinite;
   background-attachment: fixed;
+}
+
+@keyframes bgShift {
+  0%, 100% { background-position: 0% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
 }
 
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(224, 122, 95, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(129, 178, 154, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(224, 122, 95, 0.05) 0%, transparent 50%);
   z-index: 0;
 }
 
